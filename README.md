@@ -36,6 +36,16 @@ The plugin finds the agent pane by walking the process tree — no hardcoded pan
 vim.pack.add('timwmillard/tmux-agent.nvim', {
     config = function()
         require('tmux-agent').setup()
+        local ta = require('tmux-agent')
+
+        vim.keymap.set('n', '<leader>cc', function() ta.send_location('claude') end,    { desc = 'Send to claude' })
+        vim.keymap.set('v', '<leader>cc', function() ta.send_selection('claude') end,   { desc = 'Send selection to claude' })
+
+        vim.keymap.set('n', '<leader>co', function() ta.send_location('opencode') end,  { desc = 'Send to opencode' })
+        vim.keymap.set('v', '<leader>co', function() ta.send_selection('opencode') end, { desc = 'Send selection to opencode' })
+
+        vim.keymap.set('n', '<leader>cg', function() ta.send_location('codex') end,     { desc = 'Send to codex' })
+        vim.keymap.set('v', '<leader>cg', function() ta.send_selection('codex') end,    { desc = 'Send selection to codex' })
     end,
 })
 ```
@@ -68,32 +78,39 @@ use {
     'timwmillard/tmux-agent.nvim',
     config = function()
         require('tmux-agent').setup()
+        local ta = require('tmux-agent')
+
+        vim.keymap.set('n', '<leader>cc', function() ta.send_location('claude') end,    { desc = 'Send to claude' })
+        vim.keymap.set('v', '<leader>cc', function() ta.send_selection('claude') end,   { desc = 'Send selection to claude' })
+
+        vim.keymap.set('n', '<leader>co', function() ta.send_location('opencode') end,  { desc = 'Send to opencode' })
+        vim.keymap.set('v', '<leader>co', function() ta.send_selection('opencode') end, { desc = 'Send selection to opencode' })
+
+        vim.keymap.set('n', '<leader>cg', function() ta.send_location('codex') end,     { desc = 'Send to codex' })
+        vim.keymap.set('v', '<leader>cg', function() ta.send_selection('codex') end,    { desc = 'Send selection to codex' })
     end,
 }
 ```
 
 ## Configuration
 
-The plugin has built-in presets for `claude`, `opencode`, and `codex` — just set `agent` and everything else is configured automatically:
+Call `setup()` once. The `agent` option sets the default agent used when no name is passed to `send_location` or `send_selection`. It defaults to `'claude'`.
 
 ```lua
--- claude (default)
-require('tmux-agent').setup({ agent = 'claude' })
+-- default (claude)
+require('tmux-agent').setup()
 
--- opencode
+-- change the default agent
 require('tmux-agent').setup({ agent = 'opencode' })
-
--- codex
-require('tmux-agent').setup({ agent = 'codex' })
 ```
 
-For a custom agent or to override preset values:
+The plugin has built-in presets for `claude`, `opencode`, and `codex` that configure `startup_delay` and other values automatically. For any other agent, or to override preset values:
 
 ```lua
 require('tmux-agent').setup({
     agent         = 'aider',
     startup_delay = 2,
-    keymap        = '<leader>cc',
+    launch_mode   = 'split_right',
 })
 ```
 
@@ -106,16 +123,19 @@ require('tmux-agent').setup({
 
 ## Keymaps
 
-The plugin does not set any keymaps. Add them in your config:
+The plugin does not set any keymaps. Add them in your config.
+
+Pass an agent name to target that agent directly — no extra configuration needed. Omit the name to use the default agent from `setup()`:
 
 ```lua
 local ta = require('tmux-agent')
 
+-- uses the default agent
 vim.keymap.set('n', '<leader>cc', function() ta.send_location() end,  { desc = 'Send file:line to agent' })
 vim.keymap.set('v', '<leader>cc', function() ta.send_selection() end, { desc = 'Send selection to agent' })
 ```
 
-Both functions accept optional `(agent_name, mode)` arguments to override the config defaults. To bind multiple agents to different keys:
+To bind multiple agents to different keys:
 
 ```lua
 local ta = require('tmux-agent')
