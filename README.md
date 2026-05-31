@@ -25,11 +25,21 @@ The plugin finds the agent pane by walking the process tree — no hardcoded pan
 
 ## Requirements
 
-- Neovim 0.8+
+- Neovim 0.8+ (0.12+ for built-in `vim.pack`)
 - tmux
 - A CLI AI agent on your `$PATH` (defaults to `claude`)
 
 ## Installation
+
+### Neovim 0.12+ (built-in)
+
+```lua
+vim.pack.add('timwmillard/tmux-agent.nvim', {
+    config = function()
+        require('tmux-agent').setup()
+    end,
+})
+```
 
 ### lazy.nvim
 
