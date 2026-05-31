@@ -1,7 +1,7 @@
 local M = {}
 
 local presets = {
-    claude   = { launch_args = nil,        startup_delay = 1.5 },
+    claude   = { launch_args = nil, startup_delay = 1.5 },
     codex    = { launch_args = nil, startup_delay = 3 },
     opencode = { launch_args = nil, startup_delay = 3 },
 }
@@ -12,9 +12,19 @@ M.config = {
     keymap        = '<leader>cc',
     startup_delay = 1.5,
     launch_args   = nil,
+    launch_mode   = 'window',  -- 'window' | 'pane' | 'vpane'
 }
 
-local function find_agent_pane()
+local function agent_config(agent_name)
+    local preset = presets[agent_name] or {}
+    return vim.tbl_deep_extend('force', {
+        startup_delay = M.config.startup_delay,
+        launch_args   = M.config.launch_args,
+        window_name   = agent_name,
+    }, preset)
+end
+
+local function find_agent_pane(agent_name)
     local pane_map = {}
     local out = vim.fn.system("tmux list-panes -s -F '#{pane_pid}|#{session_name}:#{window_index}.#{pane_index}'")
     for line in out:gmatch('[^\n]+') do
@@ -24,7 +34,7 @@ local function find_agent_pane()
 
     local ppid_of = {}
     local agent_pids = {}
-    local agent_path = vim.fn.exepath(M.config.agent)
+    local agent_path = vim.fn.exepath(agent_name)
     local ps = vim.fn.system('ps -A -o pid=,ppid=,command=')
     for line in ps:gmatch('[^\n]+') do
         local pid_s, ppid_s, cmd = line:match('^%s*(%d+)%s+(%d+)%s+(.-)%s*$')
@@ -32,8 +42,8 @@ local function find_agent_pane()
             local pid = tonumber(pid_s)
             ppid_of[pid] = tonumber(ppid_s)
             if (agent_path ~= '' and cmd:find(agent_path, 1, true))
-                or cmd == M.config.agent
-                or cmd:match('^' .. vim.pesc(M.config.agent) .. ' ') then
+                or cmd == agent_name
+                or cmd:match('^' .. vim.pesc(agent_name) .. ' ') then
                 agent_pids[pid] = true
             end
         end
@@ -50,37 +60,45 @@ local function find_agent_pane()
     return nil
 end
 
--- Returns target, prompt_was_launched (true if initial_text was embedded in the launch command)
-local function get_or_create_pane(initial_text)
-    local target = find_agent_pane()
-    if target then
-        vim.notify('tmux-agent: found pane ' .. target, vim.log.levels.INFO)
-        return target, false
-    end
-
+local function create_agent_pane(agent_name, mode)
     local session = vim.fn.system("tmux display-message -p '#S'"):gsub('[%s\n]+', '')
     if session == '' then
         vim.notify('tmux-agent: not inside a tmux session', vim.log.levels.ERROR)
-        return nil, false
+        return nil
     end
 
-    local win = vim.fn.system(
-        'tmux new-window -t ' .. vim.fn.shellescape(session) .. ': -P -F \'#{window_index}\' -n '
-        .. vim.fn.shellescape(M.config.window_name)
-    ):gsub('[%s\n]+', '')
-    local new_target = session .. ':' .. win .. '.0'
+    local cfg = agent_config(agent_name)
+    local new_target
+
+    if mode == 'pane' or mode == 'vpane' then
+        new_target = vim.fn.system(
+            "tmux split-window -v -P -F '#{session_name}:#{window_index}.#{pane_index}'"
+        ):gsub('[%s\n]+', '')
+    elseif mode == 'hpane' then
+        new_target = vim.fn.system(
+            "tmux split-window -h -P -F '#{session_name}:#{window_index}.#{pane_index}'"
+        ):gsub('[%s\n]+', '')
+    else  -- 'window' (default)
+        local win = vim.fn.system(
+            'tmux new-window -t ' .. vim.fn.shellescape(session) .. ': -P -F \'#{window_index}\' -n '
+            .. vim.fn.shellescape(cfg.window_name)
+        ):gsub('[%s\n]+', '')
+        new_target = session .. ':' .. win .. '.0'
+    end
+
     vim.notify('tmux-agent: created pane ' .. new_target, vim.log.levels.INFO)
+    vim.fn.system('tmux send-keys -t ' .. vim.fn.shellescape(new_target) .. ' ' .. vim.fn.shellescape(agent_name) .. ' Enter')
+    vim.fn.system('sleep ' .. cfg.startup_delay)
+    return new_target
+end
 
-    if initial_text and M.config.launch_args then
-        local args = M.config.launch_args:gsub('{prompt}', vim.trim(initial_text))
-        local cmd = M.config.agent .. ' ' .. args
-        vim.fn.system('tmux send-keys -t ' .. vim.fn.shellescape(new_target) .. ' ' .. vim.fn.shellescape(cmd) .. ' Enter')
-        return new_target, true
+local function get_or_create_pane(agent_name, mode)
+    local target = find_agent_pane(agent_name)
+    if target then
+        vim.notify('tmux-agent: found pane ' .. target, vim.log.levels.INFO)
+        return target
     end
-
-    vim.fn.system('tmux send-keys -t ' .. vim.fn.shellescape(new_target) .. ' ' .. vim.fn.shellescape(M.config.agent) .. ' Enter')
-    vim.fn.system('sleep ' .. M.config.startup_delay)
-    return new_target, false
+    return create_agent_pane(agent_name, mode)
 end
 
 local function send_to_pane(target, text)
@@ -107,17 +125,21 @@ local function switch_to_pane(target)
     end
 end
 
-function M.send_location()
+function M.send_location(agent_name, mode)
+    agent_name = agent_name or M.config.agent
+    mode = mode or M.config.launch_mode
     local file = vim.fn.expand('%:p')
     local lnum = vim.fn.line('.')
     local text = file .. ':' .. lnum .. ' '
-    local target, launched = get_or_create_pane(text)
+    local target = get_or_create_pane(agent_name, mode)
     if not target then return end
-    if not launched then send_to_pane(target, text) end
+    send_to_pane(target, text)
     switch_to_pane(target)
 end
 
-function M.send_selection()
+function M.send_selection(agent_name, mode)
+    agent_name = agent_name or M.config.agent
+    mode = mode or M.config.launch_mode
     local file = vim.fn.expand('%:p')
     local ft = vim.bo.filetype
     local s = vim.fn.line('v')
@@ -132,24 +154,25 @@ function M.send_selection()
         .. '\n```' .. ft .. '\n'
         .. table.concat(lines, '\n')
         .. '\n```\n\n'
-    local target, launched = get_or_create_pane(text)
+    local target = get_or_create_pane(agent_name, mode)
     if not target then return end
-    if not launched then send_to_pane(target, text) end
+    send_to_pane(target, text)
     switch_to_pane(target)
 end
 
-function M.debug()
-    local agent_path = vim.fn.exepath(M.config.agent)
-    print('agent: ' .. M.config.agent)
+function M.debug(agent_name)
+    agent_name = agent_name or M.config.agent
+    local agent_path = vim.fn.exepath(agent_name)
+    print('agent: ' .. agent_name)
     print('agent_path: ' .. (agent_path ~= '' and agent_path or '(not found in PATH)'))
 
     local panes = vim.fn.system("tmux list-panes -s -F '#{pane_pid}|#{session_name}:#{window_index}.#{pane_index}'")
     print('panes:\n' .. panes)
 
-    local ps = vim.fn.system('ps -A -o pid=,ppid=,command= | grep -v grep | grep -i ' .. vim.fn.shellescape(M.config.agent))
+    local ps = vim.fn.system('ps -A -o pid=,ppid=,command= | grep -v grep | grep -i ' .. vim.fn.shellescape(agent_name))
     print('agent processes:\n' .. ps)
 
-    local target = find_agent_pane()
+    local target = find_agent_pane(agent_name)
     print('find_agent_pane() => ' .. (target or 'nil'))
 end
 
@@ -160,8 +183,8 @@ function M.setup(opts)
     M.config.window_name = M.config.window_name or M.config.agent
 
     if M.config.keymap then
-        vim.keymap.set('n', M.config.keymap, M.send_location,  { desc = 'Send file:line to agent' })
-        vim.keymap.set('v', M.config.keymap, M.send_selection, { desc = 'Send selection to agent' })
+        vim.keymap.set('n', M.config.keymap, function() M.send_location() end,  { desc = 'Send file:line to agent' })
+        vim.keymap.set('v', M.config.keymap, function() M.send_selection() end, { desc = 'Send selection to agent' })
     end
 end
 

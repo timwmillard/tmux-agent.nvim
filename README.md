@@ -2,7 +2,7 @@
 
 Send your current file location or a code selection from Neovim directly to an AI agent running in a tmux pane.
 
-Works with any CLI agent (`claude`, `opencode`, `codex`, `aider`, `llm`, etc.). If the agent isn't running, the plugin opens a new tmux window and starts it for you.
+Works with any CLI agent (`claude`, `opencode`, `codex`, `aider`, `llm`, etc.). If the agent isn't running, the plugin opens a new tmux window or split pane and starts it for you. Multiple agents can run simultaneously — each is tracked independently.
 
 ## How it works
 
@@ -86,12 +86,13 @@ require('tmux-agent').setup({
 })
 ```
 
-| Option         | Default        | Description                                                                         |
-|----------------|----------------|-------------------------------------------------------------------------------------|
-| `agent`        | `'claude'`     | Agent binary name or path; sets preset defaults for `claude`, `opencode`, `codex`   |
-| `window_name`  | agent name     | tmux window name created when launching the agent; defaults to the agent name       |
-| `keymap`       | `'<leader>cc'` | Key in normal and visual mode; `false` to skip                                      |
-| `startup_delay`| `1.5`          | Seconds to wait after launching the agent before pasting (`opencode`/`codex` default to `3`) |
+| Option          | Default        | Description                                                                                   |
+|-----------------|----------------|-----------------------------------------------------------------------------------------------|
+| `agent`         | `'claude'`     | Agent binary name or path; sets preset defaults for `claude`, `opencode`, `codex`            |
+| `window_name`   | agent name     | tmux window name created when launching the agent; defaults to the agent name                 |
+| `keymap`        | `'<leader>cc'` | Key in normal and visual mode; `false` to skip                                                |
+| `startup_delay` | `1.5`          | Seconds to wait after launching the agent before pasting (`opencode`/`codex` default to `3`) |
+| `launch_mode`   | `'window'`     | Where to create the agent if not running: `'window'`, `'pane'`, `'vpane'`, `'hpane'`         |
 
 ## Keymaps
 
@@ -105,16 +106,52 @@ To bind the actions manually:
 ```lua
 require('tmux-agent').setup({ keymap = false })
 
-vim.keymap.set('n', '<leader>cc', require('tmux-agent').send_location)
-vim.keymap.set('v', '<leader>cc', require('tmux-agent').send_selection)
+vim.keymap.set('n', '<leader>cc', function() require('tmux-agent').send_location() end)
+vim.keymap.set('v', '<leader>cc', function() require('tmux-agent').send_selection() end)
+```
+
+Both functions accept optional `(agent_name, mode)` arguments to override the config defaults.
+
+To map multiple agents to different keys, disable the default keymap and bind each agent explicitly:
+
+```lua
+require('tmux-agent').setup({ keymap = false })
+
+local ta = require('tmux-agent')
+
+vim.keymap.set('n', '<leader>cc', function() ta.send_location('claude') end,    { desc = 'Send to claude' })
+vim.keymap.set('v', '<leader>cc', function() ta.send_selection('claude') end,   { desc = 'Send selection to claude' })
+
+vim.keymap.set('n', '<leader>co', function() ta.send_location('opencode') end,  { desc = 'Send to opencode' })
+vim.keymap.set('v', '<leader>co', function() ta.send_selection('opencode') end, { desc = 'Send selection to opencode' })
+
+vim.keymap.set('n', '<leader>cg', function() ta.send_location('codex') end,     { desc = 'Send to codex' })
+vim.keymap.set('v', '<leader>cg', function() ta.send_selection('codex') end,    { desc = 'Send selection to codex' })
 ```
 
 ## Commands
 
-| Command           | Description                                       |
-|-------------------|---------------------------------------------------|
-| `:TmuxAgentSend`  | Send location or selection (range-aware)          |
-| `:TmuxAgentDebug` | Print pane detection info for troubleshooting     |
+All commands accept an optional agent name argument and work with visual ranges.
+
+| Command               | Launch mode                              |
+|-----------------------|------------------------------------------|
+| `:TmuxAgent [agent]`       | Config default (`launch_mode`)      |
+| `:TmuxAgentWindow [agent]` | New tmux window                     |
+| `:TmuxAgentPane [agent]`   | Pane split below (`split-window -v`)|
+| `:TmuxAgentVPane [agent]`  | Pane split below (`split-window -v`)|
+| `:TmuxAgentHPane [agent]`  | Pane split right (`split-window -h`)|
+| `:TmuxAgentDebug [agent]`  | Print pane detection info           |
+
+If the agent is already running in a pane, all commands reuse that pane regardless of the launch mode specified. The mode only applies when creating a new pane.
+
+Examples:
+
+```
+:TmuxAgent               " send to default agent (claude) using default launch mode
+:TmuxAgent opencode      " send to opencode
+:TmuxAgentWindow codex   " send to codex, create in a new window if not running
+:TmuxAgentHPane claude   " send to claude, create in a side-by-side split if not running
+```
 
 ## Troubleshooting
 
