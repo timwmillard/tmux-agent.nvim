@@ -140,6 +140,16 @@ Both `agent` and `open=` support tab completion.
 
 If the agent is already running in a pane, the command reuses that pane regardless of `open=`. The open mode only applies when creating a new pane.
 
+Examples:
+
+```
+:TmuxAgent                              " default agent, new window
+:TmuxAgent claude                       " claude, new window
+:TmuxAgent claude open=split_right      " claude, split right
+:TmuxAgent claude open=split_below      " claude, split below
+:TmuxAgent open=split_right             " default agent, split right
+```
+
 ## Troubleshooting
 
 Run `:TmuxAgentDebug` to see:
