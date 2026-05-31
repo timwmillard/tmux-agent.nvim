@@ -11,15 +11,14 @@ Works with any CLI agent (`claude`, `opencode`, `codex`, `aider`, `llm`, etc.). 
 
 Example of what gets sent in visual mode:
 
-```
+````
 /home/user/project/src/foo.lua:10-20
 ```lua
 local function foo()
     return 42
 end
 ```
-
-```
+````
 
 The plugin finds the agent pane by walking the process tree — no hardcoded pane IDs needed. If a matching process isn't found in any existing pane, it creates a new tmux window, launches the agent, and returns the pane target.
 
