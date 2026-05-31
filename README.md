@@ -82,7 +82,6 @@ For a custom agent or to override preset values:
 require('tmux-agent').setup({
     agent         = 'aider',
     startup_delay = 2,
-    launch_args   = nil,  -- nil = paste after startup; '{prompt}' = positional arg; '--flag {prompt}' = named flag
     keymap        = '<leader>cc',
 })
 ```
@@ -92,8 +91,7 @@ require('tmux-agent').setup({
 | `agent`        | `'claude'`     | Agent binary name or path; sets preset defaults for `claude`, `opencode`, `codex`   |
 | `window_name`  | agent name     | tmux window name created when launching the agent; defaults to the agent name       |
 | `keymap`       | `'<leader>cc'` | Key in normal and visual mode; `false` to skip                                      |
-| `startup_delay`| `1.5`          | Seconds to wait after launching the agent before pasting (used when `launch_args` is nil) |
-| `launch_args`  | `nil`          | Arg template for passing the prompt at launch; `{prompt}` is replaced with the file location |
+| `startup_delay`| `1.5`          | Seconds to wait after launching the agent before pasting (`opencode`/`codex` default to `3`) |
 
 ## Keymaps
 

@@ -2,8 +2,8 @@ local M = {}
 
 local presets = {
     claude   = { launch_args = nil,        startup_delay = 1.5 },
-    codex    = { launch_args = '{prompt}', startup_delay = 1.5 },
-    opencode = { launch_args = '--prompt {prompt}', startup_delay = 1.5 },
+    codex    = { launch_args = nil, startup_delay = 3 },
+    opencode = { launch_args = nil, startup_delay = 3 },
 }
 
 M.config = {
