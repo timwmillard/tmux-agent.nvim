@@ -86,37 +86,27 @@ require('tmux-agent').setup({
 })
 ```
 
-| Option          | Default        | Description                                                                                   |
-|-----------------|----------------|-----------------------------------------------------------------------------------------------|
-| `agent`         | `'claude'`     | Agent binary name or path; sets preset defaults for `claude`, `opencode`, `codex`            |
-| `window_name`   | agent name     | tmux window name created when launching the agent; defaults to the agent name                 |
-| `keymap`        | `'<leader>cc'` | Key in normal and visual mode; `false` to skip                                                |
-| `startup_delay` | `1.5`          | Seconds to wait after launching the agent before pasting (`opencode`/`codex` default to `3`) |
-| `launch_mode`   | `'window'`     | Where to create the agent if not running: `'window'`, `'pane'`, `'vpane'`, `'hpane'`         |
+| Option          | Default    | Description                                                                                   |
+|-----------------|------------|-----------------------------------------------------------------------------------------------|
+| `agent`         | `'claude'` | Agent binary name or path; sets preset defaults for `claude`, `opencode`, `codex`            |
+| `window_name`   | agent name | tmux window name created when launching the agent; defaults to the agent name                 |
+| `startup_delay` | `1.5`      | Seconds to wait after launching the agent before pasting (`opencode`/`codex` default to `3`) |
+| `launch_mode`   | `'window'` | Where to create the agent if not running: `'window'`, `'split_right'`, `'split_below'`       |
 
 ## Keymaps
 
-| Mode   | Key           | Action                                      |
-|--------|---------------|---------------------------------------------|
-| Normal | `<leader>cc`  | Send `file:line` to the agent pane          |
-| Visual | `<leader>cc`  | Send selected lines as a fenced code block  |
-
-To bind the actions manually:
+The plugin does not set any keymaps. Add them in your config:
 
 ```lua
-require('tmux-agent').setup({ keymap = false })
+local ta = require('tmux-agent')
 
-vim.keymap.set('n', '<leader>cc', function() require('tmux-agent').send_location() end)
-vim.keymap.set('v', '<leader>cc', function() require('tmux-agent').send_selection() end)
+vim.keymap.set('n', '<leader>cc', function() ta.send_location() end,  { desc = 'Send file:line to agent' })
+vim.keymap.set('v', '<leader>cc', function() ta.send_selection() end, { desc = 'Send selection to agent' })
 ```
 
-Both functions accept optional `(agent_name, mode)` arguments to override the config defaults.
-
-To map multiple agents to different keys, disable the default keymap and bind each agent explicitly:
+Both functions accept optional `(agent_name, mode)` arguments to override the config defaults. To bind multiple agents to different keys:
 
 ```lua
-require('tmux-agent').setup({ keymap = false })
-
 local ta = require('tmux-agent')
 
 vim.keymap.set('n', '<leader>cc', function() ta.send_location('claude') end,    { desc = 'Send to claude' })
@@ -131,27 +121,24 @@ vim.keymap.set('v', '<leader>cg', function() ta.send_selection('codex') end,    
 
 ## Commands
 
-All commands accept an optional agent name argument and work with visual ranges.
-
-| Command               | Launch mode                              |
-|-----------------------|------------------------------------------|
-| `:TmuxAgent [agent]`       | Config default (`launch_mode`)      |
-| `:TmuxAgentWindow [agent]` | New tmux window                     |
-| `:TmuxAgentPane [agent]`   | Pane split below (`split-window -v`)|
-| `:TmuxAgentVPane [agent]`  | Pane split below (`split-window -v`)|
-| `:TmuxAgentHPane [agent]`  | Pane split right (`split-window -h`)|
-| `:TmuxAgentDebug [agent]`  | Print pane detection info           |
-
-If the agent is already running in a pane, all commands reuse that pane regardless of the launch mode specified. The mode only applies when creating a new pane.
-
-Examples:
+`:TmuxAgent` is the single entry point. It accepts an optional agent name and an optional `open=` flag, and works with visual ranges.
 
 ```
-:TmuxAgent               " send to default agent (claude) using default launch mode
-:TmuxAgent opencode      " send to opencode
-:TmuxAgentWindow codex   " send to codex, create in a new window if not running
-:TmuxAgentHPane claude   " send to claude, create in a side-by-side split if not running
+:TmuxAgent [agent] [open=window|split_right|split_below]
 ```
+
+| Command                              | Description                              |
+|--------------------------------------|------------------------------------------|
+| `:TmuxAgent`                         | Default agent, default open mode         |
+| `:TmuxAgent claude`                  | Use claude agent                         |
+| `:TmuxAgent open=split_right`        | Default agent, split right               |
+| `:TmuxAgent claude open=split_right` | claude agent, split right                |
+| `:TmuxAgent claude open=split_below` | claude agent, split below                |
+| `:TmuxAgentDebug [agent]`            | Print pane detection info                |
+
+Both `agent` and `open=` support tab completion.
+
+If the agent is already running in a pane, the command reuses that pane regardless of `open=`. The open mode only applies when creating a new pane.
 
 ## Troubleshooting
 

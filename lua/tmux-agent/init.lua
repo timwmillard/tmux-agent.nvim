@@ -1,7 +1,7 @@
 local M = {}
 
-local presets = {
-    claude   = { launch_args = nil, startup_delay = 1.5 },
+M.presets = {
+    claude   = { launch_args = nil, startup_delay = 3 },
     codex    = { launch_args = nil, startup_delay = 3 },
     opencode = { launch_args = nil, startup_delay = 3 },
 }
@@ -9,14 +9,13 @@ local presets = {
 M.config = {
     agent         = 'claude',
     window_name   = nil,
-    keymap        = '<leader>cc',
     startup_delay = 1.5,
     launch_args   = nil,
-    launch_mode   = 'window',  -- 'window' | 'pane' | 'vpane'
+    launch_mode   = 'window',  -- 'window' | 'split_right' | 'split_below'
 }
 
 local function agent_config(agent_name)
-    local preset = presets[agent_name] or {}
+    local preset = M.presets[agent_name] or {}
     return vim.tbl_deep_extend('force', {
         startup_delay = M.config.startup_delay,
         launch_args   = M.config.launch_args,
@@ -70,11 +69,11 @@ local function create_agent_pane(agent_name, mode)
     local cfg = agent_config(agent_name)
     local new_target
 
-    if mode == 'pane' or mode == 'vpane' then
+    if mode == 'split_below' then
         new_target = vim.fn.system(
             "tmux split-window -v -P -F '#{session_name}:#{window_index}.#{pane_index}'"
         ):gsub('[%s\n]+', '')
-    elseif mode == 'hpane' then
+    elseif mode == 'split_right' then
         new_target = vim.fn.system(
             "tmux split-window -h -P -F '#{session_name}:#{window_index}.#{pane_index}'"
         ):gsub('[%s\n]+', '')
@@ -178,14 +177,9 @@ end
 
 function M.setup(opts)
     opts = opts or {}
-    local preset = presets[opts.agent or M.config.agent] or {}
+    local preset = M.presets[opts.agent or M.config.agent] or {}
     M.config = vim.tbl_deep_extend('force', M.config, preset, opts)
     M.config.window_name = M.config.window_name or M.config.agent
-
-    if M.config.keymap then
-        vim.keymap.set('n', M.config.keymap, function() M.send_location() end,  { desc = 'Send file:line to agent' })
-        vim.keymap.set('v', M.config.keymap, function() M.send_selection() end, { desc = 'Send selection to agent' })
-    end
 end
 
 return M
