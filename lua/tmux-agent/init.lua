@@ -1,9 +1,17 @@
 local M = {}
 
+local presets = {
+    claude   = { launch_args = nil,        startup_delay = 1.5 },
+    codex    = { launch_args = '{prompt}', startup_delay = 1.5 },
+    opencode = { launch_args = '--prompt {prompt}', startup_delay = 1.5 },
+}
+
 M.config = {
-    agent = 'claude',
-    window_name = 'claude',
-    keymap = '<leader>cc',
+    agent         = 'claude',
+    window_name   = nil,
+    keymap        = '<leader>cc',
+    startup_delay = 1.5,
+    launch_args   = nil,
 }
 
 local function find_agent_pane()
@@ -42,17 +50,18 @@ local function find_agent_pane()
     return nil
 end
 
-local function get_or_create_pane()
+-- Returns target, prompt_was_launched (true if initial_text was embedded in the launch command)
+local function get_or_create_pane(initial_text)
     local target = find_agent_pane()
     if target then
         vim.notify('tmux-agent: found pane ' .. target, vim.log.levels.INFO)
-        return target
+        return target, false
     end
 
     local session = vim.fn.system("tmux display-message -p '#S'"):gsub('[%s\n]+', '')
     if session == '' then
         vim.notify('tmux-agent: not inside a tmux session', vim.log.levels.ERROR)
-        return nil
+        return nil, false
     end
 
     local win = vim.fn.system(
@@ -61,9 +70,17 @@ local function get_or_create_pane()
     ):gsub('[%s\n]+', '')
     local new_target = session .. ':' .. win .. '.0'
     vim.notify('tmux-agent: created pane ' .. new_target, vim.log.levels.INFO)
+
+    if initial_text and M.config.launch_args then
+        local args = M.config.launch_args:gsub('{prompt}', vim.trim(initial_text))
+        local cmd = M.config.agent .. ' ' .. args
+        vim.fn.system('tmux send-keys -t ' .. vim.fn.shellescape(new_target) .. ' ' .. vim.fn.shellescape(cmd) .. ' Enter')
+        return new_target, true
+    end
+
     vim.fn.system('tmux send-keys -t ' .. vim.fn.shellescape(new_target) .. ' ' .. vim.fn.shellescape(M.config.agent) .. ' Enter')
-    vim.fn.system('sleep 1.5')
-    return new_target
+    vim.fn.system('sleep ' .. M.config.startup_delay)
+    return new_target, false
 end
 
 local function send_to_pane(target, text)
@@ -93,9 +110,10 @@ end
 function M.send_location()
     local file = vim.fn.expand('%:p')
     local lnum = vim.fn.line('.')
-    local target = get_or_create_pane()
+    local text = file .. ':' .. lnum .. ' '
+    local target, launched = get_or_create_pane(text)
     if not target then return end
-    send_to_pane(target, file .. ':' .. lnum .. ' ')
+    if not launched then send_to_pane(target, text) end
     switch_to_pane(target)
 end
 
@@ -114,9 +132,9 @@ function M.send_selection()
         .. '\n```' .. ft .. '\n'
         .. table.concat(lines, '\n')
         .. '\n```\n\n'
-    local target = get_or_create_pane()
+    local target, launched = get_or_create_pane(text)
     if not target then return end
-    send_to_pane(target, text)
+    if not launched then send_to_pane(target, text) end
     switch_to_pane(target)
 end
 
@@ -136,7 +154,10 @@ function M.debug()
 end
 
 function M.setup(opts)
-    M.config = vim.tbl_deep_extend('force', M.config, opts or {})
+    opts = opts or {}
+    local preset = presets[opts.agent or M.config.agent] or {}
+    M.config = vim.tbl_deep_extend('force', M.config, preset, opts)
+    M.config.window_name = M.config.window_name or M.config.agent
 
     if M.config.keymap then
         vim.keymap.set('n', M.config.keymap, M.send_location,  { desc = 'Send file:line to agent' })

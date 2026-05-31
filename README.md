@@ -2,7 +2,7 @@
 
 Send your current file location or a code selection from Neovim directly to an AI agent running in a tmux pane.
 
-Works with any CLI agent (`claude`, `aider`, `llm`, etc.). If the agent isn't running, the plugin opens a new tmux window and starts it for you.
+Works with any CLI agent (`claude`, `opencode`, `codex`, `aider`, `llm`, etc.). If the agent isn't running, the plugin opens a new tmux window and starts it for you.
 
 ## How it works
 
@@ -63,19 +63,37 @@ use {
 
 ## Configuration
 
+The plugin has built-in presets for `claude`, `opencode`, and `codex` — just set `agent` and everything else is configured automatically:
+
+```lua
+-- claude (default)
+require('tmux-agent').setup({ agent = 'claude' })
+
+-- opencode
+require('tmux-agent').setup({ agent = 'opencode' })
+
+-- codex
+require('tmux-agent').setup({ agent = 'codex' })
+```
+
+For a custom agent or to override preset values:
+
 ```lua
 require('tmux-agent').setup({
-    agent       = 'claude',    -- CLI agent to launch and detect
-    window_name = 'claude',    -- tmux window name used when creating a new window
-    keymap      = '<leader>cc', -- set to false to disable the default keymap
+    agent         = 'aider',
+    startup_delay = 2,
+    launch_args   = nil,  -- nil = paste after startup; '{prompt}' = positional arg; '--flag {prompt}' = named flag
+    keymap        = '<leader>cc',
 })
 ```
 
-| Option        | Default         | Description                                             |
-|---------------|-----------------|---------------------------------------------------------|
-| `agent`       | `'claude'`      | Name or path of the agent binary                        |
-| `window_name` | `'claude'`      | Name of the tmux window created when launching an agent |
-| `keymap`      | `'<leader>cc'`  | Key used in both normal and visual mode; `false` to skip |
+| Option         | Default        | Description                                                                         |
+|----------------|----------------|-------------------------------------------------------------------------------------|
+| `agent`        | `'claude'`     | Agent binary name or path; sets preset defaults for `claude`, `opencode`, `codex`   |
+| `window_name`  | agent name     | tmux window name created when launching the agent; defaults to the agent name       |
+| `keymap`       | `'<leader>cc'` | Key in normal and visual mode; `false` to skip                                      |
+| `startup_delay`| `1.5`          | Seconds to wait after launching the agent before pasting (used when `launch_args` is nil) |
+| `launch_args`  | `nil`          | Arg template for passing the prompt at launch; `{prompt}` is replaced with the file location |
 
 ## Keymaps
 
